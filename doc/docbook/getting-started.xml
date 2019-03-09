@@ -22,9 +22,9 @@
     <title>Requirements</title>
     
     <para>
-      All &PROD; applications require <link xlink:href="http://java.sun.com/javase/downloads/index.jsp">Java Runtime Environment</link>
-      version 1.6.0 or later. The &DCW; is distributed for Windows,
-      Linux 32-bit and 64-bit versions and Mac OS x86.
+      All &PROD; applications require <link xlink:href="http://www.oracle.com/technetwork/java/javase/downloads/index.html">Java Runtime Environment</link>
+      version 1.8 or later. The &DCW; is distributed for Windows,
+      Linux and MacOSX.
     </para>
     
     <para>
@@ -44,8 +44,7 @@
       <title>Clustering results from common search engines</title>
       
       <para>
-        To try &PROD; clustering on results from common search engines, such as Google, 
-        or Bing, you can either:
+        To try &PROD; clustering on results from search engines (such as Microsoft Bing), you can either:
       </para>
 
       <itemizedlist>

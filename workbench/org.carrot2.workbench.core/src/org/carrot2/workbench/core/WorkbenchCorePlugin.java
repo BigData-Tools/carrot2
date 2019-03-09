@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -13,30 +13,51 @@
 package org.carrot2.workbench.core;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-import org.apache.commons.lang.StringUtils;
-import org.carrot2.core.*;
-import org.carrot2.text.linguistic.DefaultLexicalDataFactory;
-import org.carrot2.util.attribute.AttributeUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.carrot2.core.Controller;
+import org.carrot2.core.ControllerFactory;
+import org.carrot2.core.DocumentSourceDescriptor;
+import org.carrot2.core.IClusteringAlgorithm;
+import org.carrot2.core.IDocumentSource;
+import org.carrot2.core.ProcessingComponentDescriptor;
+import org.carrot2.core.ProcessingComponentSuite;
+import org.carrot2.shaded.guava.common.base.Objects;
+import org.carrot2.shaded.guava.common.collect.Lists;
+import org.carrot2.shaded.guava.common.collect.Maps;
+import org.carrot2.text.linguistic.DefaultLexicalDataFactoryDescriptor;
 import org.carrot2.util.attribute.BindableDescriptor;
-import org.carrot2.util.resource.*;
+import org.carrot2.util.resource.DirLocator;
+import org.carrot2.util.resource.IResource;
+import org.carrot2.util.resource.IResourceLocator;
+import org.carrot2.util.resource.PrefixDecoratorLocator;
+import org.carrot2.util.resource.ResourceLookup;
 import org.carrot2.util.resource.ResourceLookup.Location;
 import org.carrot2.workbench.core.helpers.Utils;
-import org.eclipse.core.runtime.*;
+import org.eclipse.core.runtime.IConfigurationElement;
+import org.eclipse.core.runtime.IContributor;
+import org.eclipse.core.runtime.IExtension;
 import org.eclipse.core.runtime.Platform;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
-import org.osgi.framework.*;
+import org.osgi.framework.Bundle;
+import org.osgi.framework.BundleContext;
+import org.osgi.framework.BundleException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 
 /**
  * The activator class (plug-in's entry point), controls the life-cycle and contains a
@@ -87,9 +108,13 @@ public class WorkbenchCorePlugin extends AbstractUIPlugin
     private List<ProcessingComponentDescriptor> failed = Lists.newArrayList();
 
     /**
+     * Workspace locator.
+     */
+    private IResourceLocator workspaceLocator;
+
+    /**
      * Starts the bundle: scan suites and initialize the controller.
      */
-    @SuppressWarnings("unchecked")
     public void start(BundleContext context) throws Exception
     {
         super.start(context);
@@ -97,12 +122,14 @@ public class WorkbenchCorePlugin extends AbstractUIPlugin
         
         // Fix instance location first.
         fixInstanceLocation();
+        
+        // Workspace resource locator.
+        workspaceLocator = getWorkspaceResourceLocator();
 
         // Scan the list of suite extension points.
         scanSuites();
 
         ArrayList<IResourceLocator> locators = Lists.newArrayList();
-        IResourceLocator workspaceLocator = getWorkspaceResourceLocator();
         if (workspaceLocator != null)
         {
             locators.add(workspaceLocator);
@@ -111,7 +138,7 @@ public class WorkbenchCorePlugin extends AbstractUIPlugin
 
         Map<String, Object> initAttributes = Maps.newHashMap();
         initAttributes.put(
-            AttributeUtils.getKey(DefaultLexicalDataFactory.class, "resourceLookup"),
+            DefaultLexicalDataFactoryDescriptor.Keys.RESOURCE_LOOKUP,
             new ResourceLookup(locators));
 
         controller = ControllerFactory.createCachingPooling(IDocumentSource.class);
@@ -132,7 +159,20 @@ public class WorkbenchCorePlugin extends AbstractUIPlugin
             {
                 try
                 {
-                    instanceLocation.set(installLocation.getDataArea("workspace"), true);
+                    // CARROT-1147: if instance location is inside the .app folder, search for
+                    // workspace.
+                    if (Objects.equal(Platform.getOS(), Platform.OS_MACOSX)) {
+                      Path installPath = Paths.get(installLocation.getURL().toURI());
+                      Path workspace = installPath.resolve("../../../workspace");
+                      if (Files.exists(workspace)) {
+                        instanceLocation.set(workspace.toUri().toURL(), true);
+                      } else {
+                        instanceLocation.set(Platform.getUserLocation().getDataArea("workspace"), true);
+                      }
+                    } else {
+                      instanceLocation.set(installLocation.getDataArea("workspace"), true);
+                    }
+
                     logger.info("Changed instanceLocation to: " + instanceLocation.getURL());
                 }
                 catch (Exception e)
@@ -258,8 +298,8 @@ public class WorkbenchCorePlugin extends AbstractUIPlugin
                 String suiteRoot = configElements[0].getAttribute("resourceRoot");
                 if (StringUtils.isEmpty(suiteRoot)) suiteRoot = "";
 
-                final String suiteResource = configElements[0].getAttribute("resource");
-                if (StringUtils.isEmpty(suiteResource))
+                final String suiteResourceName = configElements[0].getAttribute("resource");
+                if (StringUtils.isEmpty(suiteResourceName))
                 {
                     continue;
                 }
@@ -291,11 +331,19 @@ public class WorkbenchCorePlugin extends AbstractUIPlugin
                     }
                 }
 
-                final String suitePath = suiteRoot + suiteResource;
-                final URL bundleURL = b.getEntry(suitePath);
-                if (bundleURL == null)
+                ArrayList<IResourceLocator> locators = new ArrayList<>();
+                if (workspaceLocator != null) {
+                  locators.add(workspaceLocator);
+                }
+                locators.add(new PrefixDecoratorLocator(new BundleResourceLocator(b), suiteRoot));
+                
+                final ResourceLookup resourceLookup = new ResourceLookup(locators);
+
+                IResource suiteResource = resourceLookup.getFirst(suiteResourceName);
+                if (suiteResource == null)
                 {
-                    String message = "Suite extension resource not found: " + suitePath;
+                    String message = "Suite extension resource not found in " 
+                        + b.getSymbolicName() + ": " + bundleId;
                     Utils.logError(message, false);
                     continue;
                 }
@@ -313,11 +361,8 @@ public class WorkbenchCorePlugin extends AbstractUIPlugin
                  */
                 try
                 {
-                    final ResourceLookup resourceLookup = new ResourceLookup(
-                        new PrefixDecoratorLocator(new BundleResourceLocator(b), suiteRoot));
-
                     final ProcessingComponentSuite suite = ProcessingComponentSuite
-                        .deserialize(new URLResource(bundleURL), resourceLookup);
+                        .deserialize(suiteResource, resourceLookup);
 
                     /*
                      * Remove invalid descriptors, cache icons.
@@ -422,27 +467,43 @@ public class WorkbenchCorePlugin extends AbstractUIPlugin
         }
         
         // Invalid URLs may fail when converting to an URI. If so, try brute-force approach.
-        File workspacePath;
+        Path workspacePath;
         try {
-            workspacePath = URIUtil.toFile(instanceLocation.toURI());
+            workspacePath = Paths.get(instanceLocation.toURI());
         } catch (URISyntaxException e) {
-            workspacePath = new File(instanceLocation.getFile());
+            Utils.logError("Instance location URI unparseable via .toURI(): " 
+                + instanceLocation, false);
         }
         
-        workspacePath = workspacePath.getAbsoluteFile();
-        if (!workspacePath.exists())
-        {
-            workspacePath.mkdirs();
+        try {
+          // we know it's a file URL, so get the path directly.
+          workspacePath = new File(instanceLocation.getPath()).toPath();
+        } catch (Exception e) {
+          Utils.logError("Instance location URI couldn't be parsed: "
+              + instanceLocation, e, false);
+          return null;
         }
 
-        if (!workspacePath.exists())
+        
+        workspacePath = workspacePath.toAbsolutePath();
+        if (!Files.exists(workspacePath))
+        {
+            try {
+              Files.createDirectories(workspacePath);
+            } catch (IOException e) {
+              Utils.logError("Could not create workspace folder.", e, false);
+              return null;
+            }
+        }
+
+        if (!Files.exists(workspacePath))
         {
             // Issue a warning about read-only location.
             Utils.logError("Instance location does not exist: " + workspacePath, false);
             return null;
         }
 
-        return new DirLocator(workspacePath.getAbsoluteFile());
+        return new DirLocator(workspacePath);
     }
 
     /**

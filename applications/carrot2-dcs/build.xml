@@ -13,7 +13,6 @@
 
   <!-- Import common macros -->
   <import file="${carrot2.master.basedir}/etc/ant/common/basedir.xml" />
-  <import file="${carrot2.master.basedir}/etc/ant/common/webtest.xml" />
   <import file="${carrot2.master.basedir}/etc/ant/common/readme.xml" />
 
   <!-- DCS build dirs -->
@@ -23,16 +22,13 @@
   <property name="dcs.war.dir" location="${dcs.dir}/war" />
   <property name="dcs.war.base.name" value="${carrot2.dcs.base}" />
  
-  <!-- Webtest results -->
-  <property name="dcs.webtest.report.dir" location="tmp/dcs-webtest-report" />
-  
   <!-- DCS dist file name base -->
   <property name="dcs.dist.base" value="${carrot2.dcs.base}" />
 
   <!-- DCS-specific dependencies -->
   <patternset id="lib.dcs">
-    <include name="applications/carrot2-dcs/lib/*.jar" />
-    <include name="applications/carrot2-dcs/lib/*.LICENSE" />
+    <include name="lib/org.apache.commons/commons-fileupload*" />
+    <include name="lib/org.apache.commons/commons-io*" />
     <include name="lib/org.apache.log4j/*.LICENSE" />
     <include name="lib/org.apache.log4j/*.jar" />
     <include name="lib/org.slf4j/slf4j.LICENSE" />
@@ -54,15 +50,24 @@
         <include name="**/servlet-api*.jar" />
         <include name="**/log4j-*.jar" />
         <include name="**/log4j-*.LICENSE" />
-      	<include name="org.slf4j/slf4j-log4j12-*.jar" />
-      	<include name="org.slf4j/slf4j-api-*.jar" />
-      	<include name="org.slf4j/*.LICENSE" />
+        <include name="org.slf4j/slf4j-log4j12-*.jar" />
+        <include name="org.slf4j/slf4j-api-*.jar" />
+        <include name="org.slf4j/*.LICENSE" />
       </fileset>
       <mapper type="flatten" />
     </copy>
 
-    <copy tofile="${dcs.dir}/classes/log4j.xml"
-          file="core/carrot2-util-log4j/src/log4j-dcs.xml" />
+    <copy toDir="${dcs.dir}/classes">
+      <fileset dir="core/carrot2-util-log4j/src/">
+        <include name="log4j-dcs*.xml" />    		
+      </fileset>  
+    </copy>
+
+    <manifestclasspath property="dcs.manifest.classpath" jarfile="${dcs.dir}/lib/carrot2-dcs-bootstrap-${carrot2.version}.jar">
+      <classpath>
+        <fileset dir="${dcs.dir}/lib" includes="*.jar" excludes="carrot2-dcs-bootstrap*.jar" />
+      </classpath>
+    </manifestclasspath>
     <jar jarfile="${dcs.dir}/lib/carrot2-dcs-bootstrap-${carrot2.version}.jar">
       <fileset dir="${dcs.dir}/classes">
         <include name="**/DcsApp*.class" />
@@ -74,13 +79,20 @@
         <include name="appender-*" />
         <include name="filters-*" />
       </fileset>
+      <manifest>
+        <attribute name="Main-Class" value="org.carrot2.dcs.DcsApp" />
+        <attribute name="Class-Path" value="${dcs.manifest.classpath}" />
+      </manifest>
     </jar>
 
-    <copy todir="${dcs.dir}">
+    <copy todir="${dcs.dir}" encoding="UTF-8">
       <fileset dir="${carrot2.dcs.basedir}/etc/distribution">
-        <include name="dcs.*" />
-        <include name="invoker.jar" />
+        <include name="dcs.cmd" />
+        <include name="dcs.sh" />
       </fileset>
+      <filterset>
+        <filter token="carrot2.version" value="${carrot2.version}"/>
+      </filterset>        
     </copy>
 
     <copy todir="${dcs.dir}">
@@ -105,7 +117,7 @@
   <!--
        Builds the DCS ZIP archive.
     -->
-  <target name="carrot2.dcs.dist" depends="basedir.check, carrot2.dcs.build, carrot2.dcs.webtest.war">
+  <target name="carrot2.dcs.dist" depends="basedir.check, carrot2.dcs.build">
     <carrot2.readme readme.src="${carrot2.dcs.basedir}/etc/distribution/readme.txt"
                     readme.dest="${dcs.dir}/readme.txt" />
     <zip destfile="${dcs.dir}/../${dcs.dist.base}-${carrot2.version}.zip">
@@ -119,27 +131,6 @@
     <delete dir="${dcs.dir}" failonerror="false" />
   </target>
 
-  <!-- 
-       Runs webtests against some deployed DCS.
-    -->
-  <target name="carrot2.dcs.webtest.localhost" depends="basedir.check, carrot2.common.webtest.deployed.check">
-    <webtest-deployed webtest.tests.dir="${carrot2.dcs.basedir}/webtest"
-                      webtest.report.dir="${dcs.webtest.report.dir}" 
-                      webtest.basepath="/" />
-  </target>
-  
-  <!-- 
-       Deploys DCS WAR file and runs webtests against it.
-    -->
-  <target name="carrot2.dcs.webtest.war" depends="basedir.check, carrot2.common.webtest.war.prepare"
-          if="webtest.war.resources.available">
-    <webtest-war cargo.tmp.dir="tmp/cargo"
-                 war.path="${dcs.war.dir}/${dcs.war.base.name}.war"
-                 war.base.name="${dcs.war.base.name}"
-                 webtest.tests.dir="${carrot2.dcs.basedir}/webtest"
-                 webtest.report.dir="${dcs.webtest.report.dir}" />
-  </target>
-    
   <!-- 
        Builds the DCS war file.
     -->
@@ -160,9 +151,6 @@
       <classpath refid="lib.classpath" />
       <classpath path="${jar.dir}/carrot2-core-${carrot2.version}.jar" />
     </javac>
-
-    <copy tofile="${dcs.dir}/classes/log4j.xml"
-          file="core/carrot2-util-log4j/src/log4j-dcs.xml" />
 
     <war destfile="${dcs.war.dir}/${dcs.war.base.name}.war"
          webxml="${carrot2.dcs.basedir}/web/WEB-INF/web.xml">

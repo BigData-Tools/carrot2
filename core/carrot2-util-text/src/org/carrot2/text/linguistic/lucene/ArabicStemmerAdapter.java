@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -11,6 +11,8 @@
  */
 
 package org.carrot2.text.linguistic.lucene;
+
+import java.util.Arrays;
 
 import org.carrot2.text.linguistic.IStemmer;
 import org.carrot2.text.util.MutableCharArray;
@@ -48,7 +50,7 @@ public class ArabicStemmerAdapter implements IStemmer
 
         if (newLen != word.length() || !equals(buffer, newLen, word))
         {
-            return new MutableCharArray(buffer, 0, newLen);
+            return new MutableCharArray(Arrays.copyOf(buffer, newLen));
         }
 
         // Same-same.

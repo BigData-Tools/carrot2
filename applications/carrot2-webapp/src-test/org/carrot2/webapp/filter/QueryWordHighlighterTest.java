@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -12,22 +12,68 @@
 
 package org.carrot2.webapp.filter;
 
+import java.util.Map;
+
+import org.carrot2.core.Controller;
+import org.carrot2.core.ControllerFactory;
 import org.carrot2.core.Document;
+import org.carrot2.core.ProcessingResult;
 import org.carrot2.util.tests.CarrotTestCase;
+import org.junit.Before;
 import org.junit.Test;
 
-import com.google.common.collect.Lists;
+import org.carrot2.shaded.guava.common.collect.Lists;
+import org.carrot2.shaded.guava.common.collect.Maps;
 
 /**
  * Test cases for {@link QueryWordHighlighter}.
  */
 public class QueryWordHighlighterTest extends CarrotTestCase
 {
+    private Map<String, Object> attrs;
+
+
+    @Test
+    public void contentTruncation()
+    {
+        QueryWordHighlighterDescriptor.attributeBuilder(attrs)
+            .maxContentLength(5);
+
+        check(null, "12345678", "12345...");
+    }
+
+    @Test
+    public void contentTruncationAndHighlighting()
+    {
+        QueryWordHighlighterDescriptor.attributeBuilder(attrs)
+            .maxContentLength(5);
+
+        check("abc", "abc abc abc", "<b>abc</b> a...");
+    }
+    
+    @Test
+    public void testExcludedPatterns()
+    {
+        QueryWordHighlighterDescriptor.attributeBuilder(attrs)
+            .dontHighlightPattern("(?:and)|(?:or)");
+
+        check("foo and bar", "test foo and bar", "test <b>foo</b> and <b>bar</b>");
+    }
+
+    @Test
+    public void testSanitizePatterns()
+    {
+        QueryWordHighlighterDescriptor.attributeBuilder(attrs)
+            .querySanitizePattern("[+]");
+
+        check("+foo +bar", "test foo and bar", "test <b>foo</b> and <b>bar</b>");
+    }
+
     @Test
     public void testNullQuery()
     {
-        check(null, "test", null);
-        check("", "test", null);
+        check(null, "test", "test");
+        check("", "test", "test");
     }
 
     @Test
@@ -84,23 +130,32 @@ public class QueryWordHighlighterTest extends CarrotTestCase
     {
         check("\"the query\"", "the snippet with the query", "<b>the</b> snippet with <b>the</b> <b>query</b>");
     }
+
+    @Before
+    public void setup() {
+        attrs = Maps.newHashMap();
+    }
     
     private void check(String query, String snippetToHighlight, String expectedSnippet)
     {
         final Document document = new Document();
         document.setField(Document.SUMMARY, snippetToHighlight);
 
-        final QueryWordHighlighter highlighter = new QueryWordHighlighter();
-        highlighter.documents = Lists.newArrayList(document);
-        highlighter.query = query;
-
-        highlighter.process();
-
-        final Document highlightedDocument = highlighter.documents.get(0);
-        
-        assertThat(
-            highlightedDocument.getField(Document.SUMMARY
-                + QueryWordHighlighter.HIGHLIGHTED_FIELD_NAME_SUFFIX)).isEqualTo(
-            expectedSnippet);
+        final Controller controller = ControllerFactory.createPooling();
+        try
+        {
+            controller.init(attrs);
+            ProcessingResult result = controller.process(
+                Lists.newArrayList(document),
+                query, 
+                QueryWordHighlighter.class);
+            
+            final Document highlightedDocument = result.getDocuments().get(0);
+            assertThat((String) highlightedDocument.getField(Document.SUMMARY + QueryWordHighlighter.HIGHLIGHTED_FIELD_NAME_SUFFIX)).isEqualTo(expectedSnippet);
+        }
+        finally
+        {
+            controller.dispose();
+        }
     }
 }

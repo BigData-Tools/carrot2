@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -15,12 +15,12 @@ package org.carrot2.util.simplexml;
 import java.lang.reflect.Method;
 import java.util.Set;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.carrot2.util.ExceptionUtils;
 import org.carrot2.util.ReflectionUtils;
 import org.simpleframework.xml.*;
 
-import com.google.common.collect.ImmutableSet;
+import org.carrot2.shaded.guava.common.collect.ImmutableSet;
 
 /**
  * A wrapper around typical serialized types, such as primitives. Without this wrapper

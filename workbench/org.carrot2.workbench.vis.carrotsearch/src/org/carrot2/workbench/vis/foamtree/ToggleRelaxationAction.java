@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -44,9 +44,9 @@ public class ToggleRelaxationAction extends Action
     {
         super(null, IAction.AS_CHECK_BOX);
 
-        setImageDescriptor(AbstractUIPlugin.imageDescriptorFromPlugin(Activator.ID, "icons/enabled/suspend_co.gif"));
-        setDisabledImageDescriptor(AbstractUIPlugin.imageDescriptorFromPlugin(Activator.ID, "icons/disabled/suspend_co.gif"));
-        setToolTipText("Pause relaxation");
+        setImageDescriptor(AbstractUIPlugin.imageDescriptorFromPlugin(Activator.ID, "icons/enabled/resume_co.png"));
+        setDisabledImageDescriptor(AbstractUIPlugin.imageDescriptorFromPlugin(Activator.ID, "icons/disabled/resume_co.png"));
+        setToolTipText("Relaxation visible");
 
         Activator.getInstance().getPreferenceStore().addPropertyChangeListener(listener);
         updateState();

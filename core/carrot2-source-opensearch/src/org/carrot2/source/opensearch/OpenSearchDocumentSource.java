@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -36,7 +36,7 @@ import org.carrot2.util.attribute.constraint.IntRange;
 import org.carrot2.util.resource.URLResourceWithParams;
 import org.slf4j.Logger;
 
-import com.google.common.collect.Maps;
+import org.carrot2.shaded.guava.common.collect.Maps;
 import com.sun.syndication.fetcher.FeedFetcher;
 import com.sun.syndication.fetcher.impl.HttpURLFeedFetcher;
 
@@ -206,7 +206,7 @@ public class OpenSearchDocumentSource extends MultipageSearchEngine
         this.metadata = new MultipageSearchEngineMetadata(resultsPerPage, maximumResults,
             hasStartPage);
         this.feedFetcher = new HttpURLFeedFetcher();
-        if (org.apache.commons.lang.StringUtils.isNotBlank(this.userAgent))
+        if (org.apache.commons.lang3.StringUtils.isNotBlank(this.userAgent))
         {
             this.feedFetcher.setUserAgent(this.userAgent);
         }

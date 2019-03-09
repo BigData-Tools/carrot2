@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -15,7 +15,7 @@ package org.carrot2.webapp.model;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.carrot2.core.attribute.AttributeNames;
 import org.carrot2.util.MapUtils;
 import org.carrot2.util.attribute.*;
@@ -75,6 +75,11 @@ public class RequestModel
     public String view;
 
     @Input
+    @Attribute(key = WebappConfig.STYLESHEET_PARAM)
+    @org.simpleframework.xml.Attribute
+    public String stylesheet = "page.xsl";
+
+    @Input
     @Attribute(key = QueryProcessorServlet.STATS_KEY)
     public String statsKey;
 
@@ -83,11 +88,9 @@ public class RequestModel
 
     public Map<String, Object> otherParameters;
 
-    @SuppressWarnings("unused")
     @ElementMap(entry = "parameter", key = "key", attribute = true, inline = true, required = false)
     private HashMap<String, SimpleXmlWrapperValue> otherParametersToSerialize;
 
-    @SuppressWarnings("unused")
     @ElementMap(entry = "cookie", key = "key", attribute = true, inline = true, required = false)
     private HashMap<String, SimpleXmlWrapperValue> cookies;
 
@@ -124,7 +127,6 @@ public class RequestModel
             .wrap(otherParameters));
 
         this.cookies = MapUtils.asHashMap(SimpleXmlWrappers.wrap(cookies));
-
-        this.queryEscaped = StringEscapeUtils.escapeJavaScript(query);
+        this.queryEscaped = StringEscapeUtils.escapeEcmaScript(query);
     }
 }

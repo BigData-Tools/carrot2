@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -15,9 +15,9 @@ package org.carrot2.clustering.lingo;
 import java.util.Arrays;
 import java.util.List;
 
-import org.apache.mahout.math.function.Functions;
-import org.apache.mahout.math.matrix.*;
 import org.carrot2.core.attribute.Processing;
+import org.carrot2.mahout.math.function.Functions;
+import org.carrot2.mahout.math.matrix.*;
 import org.carrot2.text.preprocessing.PreprocessingContext;
 import org.carrot2.text.vsm.ITermWeighting;
 import org.carrot2.text.vsm.VectorSpaceModelContext;
@@ -33,7 +33,6 @@ import com.carrotsearch.hppc.cursors.IntIntCursor;
  * Builds cluster labels based on the reduced term-document matrix and assigns documents
  * to the labels.
  */
-@SuppressWarnings("deprecation")
 @Bindable(prefix = "LingoClusteringAlgorithm")
 public class ClusterBuilder
 {
@@ -158,8 +157,8 @@ public class ClusterBuilder
             oneWordCandidateStemIndices.set(wordsStemIndex[featureIndex]);
         }
 
-        final IntIntOpenHashMap stemToRowIndex = vsmContext.stemToRowIndex;
-        final IntIntOpenHashMap filteredRowToStemIndex = new IntIntOpenHashMap();
+        final IntIntHashMap stemToRowIndex = vsmContext.stemToRowIndex;
+        final IntIntHashMap filteredRowToStemIndex = new IntIntHashMap();
         final IntArrayList filteredRows = new IntArrayList();
         int filteredRowIndex = 0;
         for (IntIntCursor it : stemToRowIndex)
@@ -175,17 +174,15 @@ public class ClusterBuilder
         final double [] featureScores = featureScorer != null ? featureScorer
             .getFeatureScores(context) : null;
         final int [] wordLabelIndex = new int [wordCount];
-        if (featureScores != null)
+
+        // Word index to feature index mapping
+        Arrays.fill(wordLabelIndex, -1);
+        for (int i = 0; i < labelsFeatureIndex.length; i++)
         {
-            // Word index to feature index mapping
-            Arrays.fill(wordLabelIndex, -1);
-            for (int i = 0; i < labelsFeatureIndex.length; i++)
+            final int featureIndex = labelsFeatureIndex[i];
+            if (featureIndex < wordCount)
             {
-                final int featureIndex = labelsFeatureIndex[i];
-                if (featureIndex < wordCount)
-                {
-                    wordLabelIndex[featureIndex] = i;
-                }
+                wordLabelIndex[featureIndex] = i;
             }
         }
 
@@ -275,7 +272,7 @@ public class ClusterBuilder
 
         final int [] labelsFeatureIndex = context.preprocessingContext.allLabels.featureIndex;
         final BitSet [] documentIndices = context.preprocessingContext.allLabels.documentIndices;
-        final IntIntOpenHashMap featureValueToIndex = new IntIntOpenHashMap();
+        final IntIntHashMap featureValueToIndex = new IntIntHashMap();
 
         for (int i = 0; i < labelsFeatureIndex.length; i++)
         {

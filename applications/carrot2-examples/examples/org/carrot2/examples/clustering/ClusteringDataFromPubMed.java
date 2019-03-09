@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -40,7 +40,7 @@ public class ClusteringDataFromPubMed
          * caching. If you need to cache documents, clusters or Carrot2 component
          * instances, please see the CachingController example.
          */
-        final Controller controller = ControllerFactory.createSimple();
+        final Controller controller = ControllerFactory.createPooling();
         Map<String, Object> attributes = new HashMap<String, Object>();
 
         /*

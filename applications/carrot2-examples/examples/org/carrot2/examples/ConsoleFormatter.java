@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -16,7 +16,7 @@ import java.text.NumberFormat;
 import java.util.Collection;
 import java.util.Map;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.carrot2.core.Cluster;
 import org.carrot2.core.Document;
 import org.carrot2.core.ProcessingResult;
@@ -103,7 +103,7 @@ public class ConsoleFormatter
         final String indent = getIndent(level);
 
         System.out.printf(indent + "[%2s] ", document.getStringId());
-        System.out.println(document.getField(Document.TITLE));
+        System.out.println((Object) document.getField(Document.TITLE));
         final String url = document.getField(Document.CONTENT_URL);
         if (StringUtils.isNotBlank(url))
         {

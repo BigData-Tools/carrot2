@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -58,7 +58,7 @@ final class XSLTFilterServletResponse extends HttpServletResponseWrapper
     private ServletOutputStream stream = null;
 
     /**
-     * The {@link PrintWriter} returned frmo {@link #getWriter()} or <code>null</code>.
+     * The {@link PrintWriter} returned from {@link #getWriter()} or <code>null</code>.
      */
     private PrintWriter writer = null;
 
@@ -106,14 +106,14 @@ final class XSLTFilterServletResponse extends HttpServletResponseWrapper
         }
 
         if (!processingSuppressed
-            && (contentType.startsWith("text/xml") || contentType
-                .startsWith("application/xml")))
+            && (contentType.startsWith("text/xml") || 
+                contentType.startsWith("application/xml")))
         {
             /*
-             * We have an XML data stream. Set the real response to proper content type.
-             * TODO: Should we make the encoding a configurable setting?
+             * We have an XML data stream. Do not enforce the content type. If needed,
+             * the XSLT stylesheet can override it via the xsl:output instruction.
              */
-            origResponse.setContentType("text/html; charset=UTF-8");
+            origResponse.setContentType(contentType);
         }
         else
         {
@@ -154,7 +154,7 @@ final class XSLTFilterServletResponse extends HttpServletResponseWrapper
     private boolean processingSuppressed(HttpServletRequest origRequest2)
     {
         return (origRequest.getAttribute(XSLTFilterConstants.NO_XSLT_PROCESSING) != null)
-            | (origRequest.getParameter(XSLTFilterConstants.NO_XSLT_PROCESSING) != null);
+            || (origRequest.getParameter(XSLTFilterConstants.NO_XSLT_PROCESSING) != null);
     }
 
     /**
@@ -170,7 +170,9 @@ final class XSLTFilterServletResponse extends HttpServletResponseWrapper
      */
     public void flushBuffer() throws IOException
     {
-        this.stream.flush();
+        if (stream != null) {
+            this.stream.flush();
+        }
     }
 
     /**
@@ -277,7 +279,7 @@ final class XSLTFilterServletResponse extends HttpServletResponseWrapper
                 final byte [] bytes = ((DeferredOutputStream) stream).getBytes();
                 final boolean processingSuppressed = (origRequest
                     .getAttribute(XSLTFilterConstants.NO_XSLT_PROCESSING) != null)
-                    | (origRequest.getParameter(XSLTFilterConstants.NO_XSLT_PROCESSING) != null);
+                    || (origRequest.getParameter(XSLTFilterConstants.NO_XSLT_PROCESSING) != null);
 
                 if (processingSuppressed)
                 {
@@ -291,8 +293,9 @@ final class XSLTFilterServletResponse extends HttpServletResponseWrapper
                     // Otherwise apply XSLT transformation to it.
                     try
                     {
-                        processWithXslt(bytes, (Map<String, Object>) origRequest
-                            .getAttribute(XSLTFilterConstants.XSLT_PARAMS_MAP),
+                        processWithXslt(
+                            bytes, 
+                            (Map<String, Object>) origRequest.getAttribute(XSLTFilterConstants.XSLT_PARAMS_MAP),
                             origResponse);
                     }
                     catch (TransformerException e)
@@ -406,6 +409,18 @@ final class XSLTFilterServletResponse extends HttpServletResponseWrapper
         }
         catch (SAXException e)
         {
+            if (log.isDebugEnabled()) {
+                StringBuilder sb = new StringBuilder();
+                char [] hex = "0123456789abcdef".toCharArray();
+                for (int i = 0; i < bytes.length; i++) {
+                    int c = bytes[i] & 0xff;
+                    sb.append(hex[c >>> 4]);
+                    sb.append(hex[c & 0xf]);
+                }
+                log.debug("Failed to parse the following input (hex-encoded): " 
+                    + sb.toString(), e);
+            }
+
             final Exception nested = e.getException();
             if (nested != null)
             {
@@ -418,6 +433,7 @@ final class XSLTFilterServletResponse extends HttpServletResponseWrapper
                     throw (TransformerException) nested;
                 }
             }
+
             throw new TransformerException("Input parsing exception.", e);
         }
     }

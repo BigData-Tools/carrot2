@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -15,6 +15,8 @@ package org.carrot2.util;
 import org.carrot2.util.tests.CarrotTestCase;
 import org.junit.Test;
 import static org.carrot2.util.StringUtils.*;
+
+import static org.junit.Assert.*;
 
 public class StringUtilsTest extends CarrotTestCase
 {
@@ -36,6 +38,18 @@ public class StringUtilsTest extends CarrotTestCase
     public void testSplitCamelCaseWithDigits()
     {
         assertEquals("HTML 123 Test", splitCamelCase("HTML123Test"));
+    }
+
+    @Test
+    public void testSplitArray()
+    {
+        assertEquals("String []", splitCamelCase("String[]"));
+    }
+
+    @Test
+    public void testIFooFace()
+    {
+        assertEquals("I Foo Face", splitCamelCase("IFooFace"));
     }
 
     @Test

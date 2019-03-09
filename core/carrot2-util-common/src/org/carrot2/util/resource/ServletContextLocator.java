@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -14,10 +14,10 @@ package org.carrot2.util.resource;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Objects;
 
 import javax.servlet.ServletContext;
 
-import org.apache.commons.lang.ObjectUtils;
 import org.carrot2.util.CloseableUtils;
 
 /**
@@ -97,7 +97,7 @@ public final class ServletContextLocator implements IResourceLocator
 
         if (target != null && target instanceof ServletContextLocator)
         {
-            return ObjectUtils.equals(this.context, ((ServletContextLocator) target).context);
+            return Objects.equals(this.context, ((ServletContextLocator) target).context);
         }
 
         return false;

@@ -12,6 +12,7 @@
   <xsl:param name="solr.url-field">url</xsl:param>
   <xsl:param name="solr.id-field"></xsl:param>
   <xsl:param name="solr.use-highlighter-output">true</xsl:param>
+  <xsl:param name="solr.copy-fields">false</xsl:param>
 
   <xsl:key name="highlighter"  match="/response/lst[@name='highlighting']/lst" use="@name" />
 
@@ -41,10 +42,13 @@
                 </xsl:for-each>
               </xsl:when>
               <xsl:otherwise>
-                <xsl:value-of select="*[@name=$solr.summary-field]" />
+                <xsl:apply-templates select="*[@name=$solr.summary-field]" />
               </xsl:otherwise>
             </xsl:choose>
           </snippet>
+          <xsl:if test="$solr.copy-fields = 'true'">
+            <xsl:apply-templates mode="copy-fields" />
+          </xsl:if>
         </document>
       </xsl:for-each>
 
@@ -64,6 +68,13 @@
         </attribute>
       </xsl:if>
     </searchresult>
+  </xsl:template>
+  
+  <xsl:template match="arr/str">
+    <xsl:apply-templates />
+    <xsl:if test="not(position() = last())">
+      <xsl:value-of select="' . '" />
+    </xsl:if>
   </xsl:template>
 
   <!-- Solr to Carrot2 cluster adapter. -->  
@@ -92,5 +103,25 @@
         <xsl:call-template name="cluster-adapter" />
       </xsl:for-each>
     </group>
+  </xsl:template>
+
+  <xsl:template match="arr" mode="copy-fields">
+    <field key="{@name}">
+      <value>
+        <wrapper class="org.carrot2.util.simplexml.ListSimpleXmlWrapper">
+          <list>
+            <xsl:for-each select="*">
+              <value value="{.}"/>
+            </xsl:for-each>
+          </list>
+        </wrapper>
+      </value>
+    </field>
+  </xsl:template>
+  
+  <xsl:template match="bool|str|int|long|double" mode="copy-fields">
+    <field key="{@name}">
+      <value value="{.}"/>
+    </field>
   </xsl:template>
 </xsl:stylesheet>

@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -36,12 +36,12 @@ import org.carrot2.util.attribute.constraint.IntRange;
 import org.carrot2.util.resource.ClassResource;
 import org.carrot2.util.resource.IResource;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Strings;
-import com.google.common.collect.Maps;
+import org.carrot2.shaded.guava.common.base.Joiner;
+import org.carrot2.shaded.guava.common.base.Strings;
+import org.carrot2.shaded.guava.common.collect.Maps;
 
 /**
- * A Carrot2 input component for the eTools service (http://www.etools.ch). For commercial
+ * A Carrot2 input component for the eTools service (https://www.etools.ch). For commercial
  * licensing of the eTools feed, please e-mail: <code>contact@comcepta.com</code>.
  */
 @Bindable(prefix = "EToolsDocumentSource")
@@ -57,7 +57,7 @@ public class EToolsDocumentSource extends RemoteXmlSimpleSearchEngineBase
     @Label("Service URL")
     @Level(AttributeLevel.ADVANCED)
     @Group(SERVICE)
-    public String serviceUrlBase = "http://www.etools.ch/partnerSearch.do";
+    public String serviceUrlBase = "https://www.etools.ch/partnerSearch.do";
 
     /**
      * Enumeration for countries supported by {@link EToolsDocumentSource}, see
@@ -268,6 +268,18 @@ public class EToolsDocumentSource extends RemoteXmlSimpleSearchEngineBase
     @Level(AttributeLevel.ADVANCED)
     @Group(SERVICE)
     public String partnerId = "Carrot2";
+    
+    /**
+     * eTools customer identifier. For commercial use of eTools, please e-mail: 
+     * <code>contact@comcepta.com</code> to obtain your customer identifier. 
+     */
+    @Input
+    @Processing
+    @Attribute
+    @Label("Customer ID")
+    @Level(AttributeLevel.MEDIUM)
+    @Group(SERVICE)
+    public String customerId = "";
 
     /** Some constants for calculation of request parameters */
     private static final int MAX_DATA_SOURCE_RESULTS = 40;
@@ -295,7 +307,8 @@ public class EToolsDocumentSource extends RemoteXmlSimpleSearchEngineBase
             + "&maxRecords=" + results + "&language=" + language.getCode() + "&timeout="
             + Integer.toString(timeout) + "&dataSources=" + dataSources.getCode()
             + "&safeSearch=" + Boolean.toString(safeSearch) + "&country="
-            + country.getCode();
+            + country.getCode() + "&customerId=" 
+            + StringUtils.urlEncodeWrapException(customerId, "UTF-8");
     }
 
     @Override
@@ -341,8 +354,16 @@ public class EToolsDocumentSource extends RemoteXmlSimpleSearchEngineBase
         super.beforeProcessing();
         if (!Strings.isNullOrEmpty(site))
         {
+            String [] sites = site.split(",\\s*");
+            for (int i = 0; i < sites.length; i++)
+            {
+                if (!sites[i].startsWith("site:")) {
+                    sites[i] = "site:" + sites[i];
+                }
+            }
+
             this.query = "(" + this.query + ") AND ("
-                + Joiner.on(" OR ").join(site.split(",\\s*")) + ")";
+                + Joiner.on(" OR ").join(sites) + ")";
             if (this.query.length() > 2048)
             {
                 throw new ProcessingException(
@@ -355,9 +376,12 @@ public class EToolsDocumentSource extends RemoteXmlSimpleSearchEngineBase
     protected void afterFetch(SearchEngineResponse response)
     {
         // Set document's language
-        for (Document document : response.results)
+        if (language != Language.ALL) 
         {
-            document.setLanguage(language.toLanguageCode());
+            for (Document document : response.results)
+            {
+                document.setLanguage(language.toLanguageCode());
+            }
         }
     }
 }

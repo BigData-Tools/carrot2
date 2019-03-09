@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -17,7 +17,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.carrot2.core.attribute.AttributeNames;
 import org.carrot2.core.attribute.Init;
 import org.carrot2.util.ReflectionUtils;
@@ -26,8 +26,8 @@ import org.carrot2.util.attribute.Input;
 import org.carrot2.util.attribute.Output;
 import org.simpleframework.xml.Attribute;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
+import org.carrot2.shaded.guava.common.collect.ImmutableMap;
+import org.carrot2.shaded.guava.common.collect.Maps;
 
 /**
  * A controller implementing the life cycle described in {@link IProcessingComponent}. Use
@@ -104,6 +104,7 @@ public final class Controller implements Closeable
      */
     public Controller(IProcessingComponentManager componentManager)
     {
+        HttpAuthHub.setupAuthenticator();
         this.componentManager = componentManager;
     }
 

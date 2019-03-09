@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -20,10 +20,10 @@ import java.util.Map.Entry;
 
 import javax.servlet.*;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.*;
 
-import com.google.common.collect.*;
+import org.carrot2.shaded.guava.common.collect.*;
 
 /**
  * Initializes file appenders to save logs to files named after the context path. Works
@@ -163,10 +163,10 @@ public class LogInitContextListener implements ServletContextListener
         /*
          * Check for catalina's (Tomcat) default log folder.
          */
-        final String catalinaHome = System.getProperty("catalina.home");
-        if (!StringUtils.isEmpty(catalinaHome) && new File(catalinaHome).isDirectory())
+        final String catalinaBase = System.getProperty("catalina.base");
+        if (!StringUtils.isEmpty(catalinaBase) && new File(catalinaBase).isDirectory())
         {
-            final File logDir = new File(new File(catalinaHome), "logs");
+            final File logDir = new File(new File(catalinaBase), "logs");
             if (logDir.isDirectory())
             {
                 return logDir;

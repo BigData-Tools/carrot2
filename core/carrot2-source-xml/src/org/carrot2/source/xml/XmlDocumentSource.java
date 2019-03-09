@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -16,18 +16,44 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import javax.xml.transform.Templates;
 
-import org.apache.commons.lang.ObjectUtils;
-import org.apache.commons.lang.StringUtils;
-import org.carrot2.core.*;
-import org.carrot2.core.attribute.*;
-import org.carrot2.util.attribute.*;
-import org.carrot2.util.attribute.constraint.*;
-import org.carrot2.util.resource.*;
-
-import com.google.common.collect.*;
+import org.apache.commons.lang3.StringUtils;
+import org.carrot2.core.Cluster;
+import org.carrot2.core.Document;
+import org.carrot2.core.IControllerContext;
+import org.carrot2.core.IDocumentSource;
+import org.carrot2.core.ProcessingComponentBase;
+import org.carrot2.core.ProcessingException;
+import org.carrot2.core.ProcessingResult;
+import org.carrot2.core.attribute.AttributeNames;
+import org.carrot2.core.attribute.CommonAttributes;
+import org.carrot2.core.attribute.Init;
+import org.carrot2.core.attribute.Internal;
+import org.carrot2.core.attribute.Processing;
+import org.carrot2.shaded.guava.common.collect.ImmutableMap;
+import org.carrot2.shaded.guava.common.collect.Lists;
+import org.carrot2.shaded.guava.common.collect.Maps;
+import org.carrot2.util.attribute.Attribute;
+import org.carrot2.util.attribute.AttributeLevel;
+import org.carrot2.util.attribute.Bindable;
+import org.carrot2.util.attribute.DefaultGroups;
+import org.carrot2.util.attribute.Group;
+import org.carrot2.util.attribute.Input;
+import org.carrot2.util.attribute.Label;
+import org.carrot2.util.attribute.Level;
+import org.carrot2.util.attribute.Output;
+import org.carrot2.util.attribute.Required;
+import org.carrot2.util.attribute.constraint.ImplementingClasses;
+import org.carrot2.util.attribute.constraint.IntRange;
+import org.carrot2.util.attribute.constraint.ResourceNameFilter;
+import org.carrot2.util.attribute.constraint.ResourceNameFilters;
+import org.carrot2.util.resource.FileResource;
+import org.carrot2.util.resource.IResource;
+import org.carrot2.util.resource.URLResource;
+import org.carrot2.util.resource.URLResourceWithParams;
 
 /**
  * Fetches documents from XML files and streams. For additional flexibility, an XSLT
@@ -235,7 +261,7 @@ public class XmlDocumentSource extends ProcessingComponentBase implements IDocum
     private Templates instanceLevelXslt;
 
     /** A helper class that groups common functionality for XML/XSLT based data sources. */
-    private final XmlDocumentSourceHelper xmlDocumentSourceHelper = new XmlDocumentSourceHelper();
+    public  final XmlDocumentSourceHelper xmlDocumentSourceHelper = new XmlDocumentSourceHelper();
 
     @Override
     public void init(IControllerContext context)
@@ -303,7 +329,7 @@ public class XmlDocumentSource extends ProcessingComponentBase implements IDocum
         Templates stylesheet = instanceLevelXslt;
         if (xslt != null)
         {
-            if (!ObjectUtils.equals(xslt, initXslt))
+            if (!Objects.equals(xslt, initXslt))
             {
                 stylesheet = xmlDocumentSourceHelper.loadXslt(xslt);
             }
@@ -342,7 +368,7 @@ public class XmlDocumentSource extends ProcessingComponentBase implements IDocum
 
         if (resource instanceof FileResource)
         {
-            title = ((FileResource) resource).getFile().getName();
+            title = ((FileResource) resource).getFileName();
         }
 
         // Open the generic Resource instance

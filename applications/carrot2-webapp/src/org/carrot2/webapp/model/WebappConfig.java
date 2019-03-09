@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -25,14 +25,15 @@ import org.carrot2.util.attribute.*;
 import org.carrot2.util.resource.*;
 import org.carrot2.util.resource.ResourceLookup.Location;
 import org.carrot2.webapp.QueryProcessorServlet;
+import org.carrot2.webapp.filter.QueryWordHighlighter;
 import org.simpleframework.xml.*;
 import org.simpleframework.xml.Attribute;
 import org.simpleframework.xml.core.Persister;
 import org.slf4j.Logger;
 
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.*;
+import org.carrot2.shaded.guava.common.base.Predicate;
+import org.carrot2.shaded.guava.common.base.Predicates;
+import org.carrot2.shaded.guava.common.collect.*;
 
 /**
  * The application-wide configuration.
@@ -84,13 +85,18 @@ public class WebappConfig
     public String componentSuite = "suites/suite-webapp.xml";
 
     @Attribute(name = "search-url", required = false)
-    public final static String SEARCH_URL = "search";
+    public String SEARCH_URL = "search";
 
     @Attribute(name = "xml-url", required = false)
-    public final static String XML_URL = "xml";
+    public String XML_URL = "xml";
+
+    @Attribute(name = "query-highlighter", required = false)
+    public String QUERY_HIGHLIGHTER_ID = QueryWordHighlighter.class.getName();
 
     @Attribute(name = "max-carrot2-results", required = false)
     public Integer maxCarrot2Results = null;
+
+    // These are for output serialization only, this is somewhat clumsy. 
 
     @Attribute(name = "query-param", required = false)
     public final static String QUERY_PARAM = AttributeNames.QUERY;
@@ -113,6 +119,9 @@ public class WebappConfig
 
     @Attribute(name = "skin-param", required = false)
     public final static String SKIN_PARAM = "skin";
+
+    @Attribute(name = "stylesheet-param", required = false)
+    public final static String STYLESHEET_PARAM = "stylesheet";
 
     /**
      * @return Initialize the global configuration and return it.
@@ -183,9 +192,9 @@ public class WebappConfig
         }
     }
 
-    public String getContextRelativeSkinStylesheet(String skinName)
+    public String getContextRelativeSkinStylesheet(RequestModel requestModel)
     {
-        return "/" + skinsFolder + "/" + skinName + "/page.xsl";
+        return "/" + skinsFolder + "/" + requestModel.skin + "/" + requestModel.stylesheet;
     }
 
     public SkinModel getSkinById(String skinId)
@@ -218,7 +227,6 @@ public class WebappConfig
         return loaded;
     }
 
-    @SuppressWarnings("unchecked")
     private static Map<String, List<AttributeDescriptor>> prepareSourceAttributeMetadata(
         ProcessingComponentSuite components) throws Exception
     {

@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -41,12 +41,12 @@ import org.carrot2.util.resource.ClassResource;
 import org.carrot2.util.resource.FileResource;
 import org.carrot2.util.resource.IResource;
 
-import com.google.common.base.Predicate;
-import com.google.common.base.Strings;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
+import org.carrot2.shaded.guava.common.base.Predicate;
+import org.carrot2.shaded.guava.common.base.Strings;
+import org.carrot2.shaded.guava.common.collect.Iterables;
+import org.carrot2.shaded.guava.common.collect.Lists;
+import org.carrot2.shaded.guava.common.collect.Maps;
+import org.carrot2.shaded.guava.common.collect.Sets;
 
 /**
  * Fetches documents from an instance of Solr.
@@ -69,6 +69,18 @@ public class SolrDocumentSource extends RemoteXmlSimpleSearchEngineBase
     @Level(AttributeLevel.ADVANCED)
     @Group(SERVICE)
     public String serviceUrlBase = "http://localhost:8983/solr/select";
+
+    /**
+     * Filter query appended to {@link #serviceUrlBase}.
+     */
+    @Input
+    @Init
+    @Processing
+    @Attribute
+    @Label("Filter query")
+    @Level(AttributeLevel.MEDIUM)
+    @Group(SERVICE)
+    public String solrFilterQuery = "";
 
     /**
      * Title field name. Name of the Solr field that will provide document titles.
@@ -132,7 +144,7 @@ public class SolrDocumentSource extends RemoteXmlSimpleSearchEngineBase
         ClassLoaderResource.class,
         FileResource.class
     }, strict = false)
-    public IResource solrXsltAdapter = new ClassResource(SolrDocumentSource.class, "solr-to-c2.xsl");
+    public IResource solrXsltAdapter;
 
     /**
      * If clusters are present in the Solr output they will be read and exposed to components
@@ -164,6 +176,18 @@ public class SolrDocumentSource extends RemoteXmlSimpleSearchEngineBase
     @Level(AttributeLevel.BASIC)
     @Group(FIELD_MAPPING)
     public boolean useHighlighterOutput = true;
+
+    /**
+     * Copy Solr fields from the search result to Carrot2 {@link org.carrot2.core.Document} instances (as fields).
+     */
+    @Input
+    @Init 
+    @Processing
+    @Attribute
+    @Label("Copy Solr document fields")
+    @Level(AttributeLevel.ADVANCED)
+    @Group(FIELD_MAPPING)
+    public boolean copyFields = false;
 
     /**
      * If {@link #readClusters} is <code>true</code> and clusters are present in the input
@@ -210,9 +234,10 @@ public class SolrDocumentSource extends RemoteXmlSimpleSearchEngineBase
     protected String buildServiceUrl()
     {
         return serviceUrlBase 
-            + (serviceUrlBase.contains("?") ? "&" : "?") 
-            + "q=" + urlEncode(query) 
-            + "&start=" + start 
+            + (serviceUrlBase.contains("?") ? "&" : "?")
+            + "q=" + urlEncode(query)
+            + (Strings.isNullOrEmpty(solrFilterQuery) ? "" : "&fq=" + urlEncode(solrFilterQuery))
+            + "&start=" + start
             + "&rows=" + results 
             + "&indent=off";
     }
@@ -220,7 +245,11 @@ public class SolrDocumentSource extends RemoteXmlSimpleSearchEngineBase
     @Override
     protected IResource getXsltResource()
     {
-        return solrXsltAdapter;
+        if (solrXsltAdapter == null) {
+            return new ClassResource(SolrDocumentSource.class, "solr-to-c2.xsl");
+        } else {
+            return solrXsltAdapter; 
+        }
     }
 
     @Override
@@ -233,6 +262,7 @@ public class SolrDocumentSource extends RemoteXmlSimpleSearchEngineBase
         parameters.put("solr.url-field", solrUrlFieldName);
         parameters.put("solr.id-field", Strings.nullToEmpty(solrIdFieldName));
         parameters.put("solr.use-highlighter-output", useHighlighterOutput ? "true" : "false");
+        parameters.put("solr.copy-fields", copyFields ? "true" : "false");
 
         return parameters;
     }

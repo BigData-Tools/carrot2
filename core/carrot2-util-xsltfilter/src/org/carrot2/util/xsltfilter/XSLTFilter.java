@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -79,9 +79,8 @@ public final class XSLTFilter implements Filter
 
         this.context = filterConfig.getServletContext();
 
-        final boolean templateCaching = getBooleanInit(filterConfig,
-            PARAM_TEMPLATE_CACHING, true);
-
+        final boolean templateCaching = getBooleanInit(filterConfig, PARAM_TEMPLATE_CACHING, true);
+        
         try
         {
             pool = new TemplatesPool(templateCaching);
@@ -126,6 +125,7 @@ public final class XSLTFilter implements Filter
         // Generate the stream and process it with the stylesheet.
         final XSLTFilterServletResponse wrappedResponse = new XSLTFilterServletResponse(
             httpResponse, httpRequest, context, pool);
+
         try
         {
             chain.doFilter(httpRequest, wrappedResponse);

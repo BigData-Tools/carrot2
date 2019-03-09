@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -24,7 +24,7 @@ import org.carrot2.core.attribute.CommonAttributesDescriptor;
 import org.carrot2.examples.SampleDocumentData;
 import org.carrot2.examples.clustering.ClusteringDataFromDocumentSources;
 
-import com.google.common.collect.Maps;
+import org.carrot2.shaded.guava.common.collect.Maps;
 
 /**
  * This example shows how to save clustering results to XML.
@@ -38,7 +38,7 @@ public class SavingResultsToXml
     public static void main(String [] args) throws Exception
     {
         // Let's fetch some results from MSN first
-        final Controller controller = ControllerFactory.createSimple();
+        final Controller controller = ControllerFactory.createPooling();
         final Map<String, Object> attributes = Maps.newHashMap();
         CommonAttributesDescriptor.attributeBuilder(attributes)
             .documents(new ArrayList<Document>(SampleDocumentData.DOCUMENTS_DATA_MINING))

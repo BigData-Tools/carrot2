@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -14,20 +14,17 @@ package org.carrot2.matrix.factorization;
 
 import java.util.*;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.carrot2.mahout.math.matrix.*;
 import org.carrot2.matrix.factorization.seeding.KMeansSeedingStrategyFactory;
 import org.carrot2.matrix.factorization.seeding.RandomSeedingStrategyFactory;
-
-import com.google.common.collect.Maps;
-
-import org.apache.mahout.math.matrix.*;
+import org.carrot2.shaded.guava.common.collect.Maps;
 
 /**
  * This class helps to guesstimate the number of iterations for iterative factorization
  * algorithms. Note: for the time being it uses a very simple linear model with lots of
  * dodgy assumptions.
  */
-@SuppressWarnings("deprecation")
 public class IterationNumberGuesser
 {
     /**

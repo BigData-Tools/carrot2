@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -18,7 +18,7 @@ import java.net.URL;
 import java.util.Iterator;
 import java.util.List;
 
-import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.carrot2.core.Document;
 import org.carrot2.source.SearchEngineResponse;
 import org.carrot2.util.StringUtils;
@@ -81,6 +81,6 @@ public class RomeFetcherUtils
 
     private static String clean(String string)
     {
-        return StringUtils.removeHtmlTags(StringEscapeUtils.unescapeHtml(string));
+        return StringUtils.removeHtmlTags(StringEscapeUtils.unescapeHtml4(string));
     }
 }

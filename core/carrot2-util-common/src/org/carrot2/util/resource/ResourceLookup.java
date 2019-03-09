@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -12,17 +12,16 @@
 
 package org.carrot2.util.resource;
 
-import java.io.File;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.lang3.ArrayUtils;
+import org.carrot2.shaded.guava.common.collect.Lists;
 import org.carrot2.util.annotations.ThreadSafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.Lists;
 
 /**
  * Resource loading utility scanning one or more {@link IResourceLocator} locations. If
@@ -52,7 +51,7 @@ public final class ResourceLookup
         /**
          * Resources in the current working directory.
          */
-        CURRENT_WORKING_DIRECTORY(new DirLocator(new File(".")));
+        CURRENT_WORKING_DIRECTORY(new DirLocator(Paths.get(".")));
 
         /**
          * The locator associated with the location.
@@ -67,7 +66,7 @@ public final class ResourceLookup
             this.locator = locator;
         }
     }
-    
+
     /**
      * Create a lookup object based on the provided array of predefined
      * locations. 
@@ -209,10 +208,15 @@ public final class ResourceLookup
 
         if (target != null && target instanceof ResourceLookup)
         {
-            return ArrayUtils.isEquals(
+            return Arrays.equals(
                 this.locators, ((ResourceLookup) target).locators);
         }
 
         return false;
+    }
+    
+    @Override
+    public String toString() {
+      return "[" + this.getClass().getSimpleName() + ": " + Arrays.toString(locators) + "]";
     }
 }

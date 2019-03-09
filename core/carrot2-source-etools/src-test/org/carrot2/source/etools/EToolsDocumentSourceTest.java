@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -23,7 +23,8 @@ import org.carrot2.util.tests.UsesExternalServices;
 import org.fest.assertions.MapAssert;
 import org.junit.Test;
 
-import com.google.common.collect.Sets;
+import org.carrot2.shaded.guava.common.collect.Sets;
+import static org.junit.Assert.*;
 
 /**
  * Test cases for {@link EToolsDocumentSource}.
@@ -65,7 +66,7 @@ public class EToolsDocumentSourceTest extends
     @Override
     public void testLargeQuery() throws Exception
     {
-        runAndCheckMinimumResults(getLargeQueryText(), getLargeQuerySize(), 100);
+        runAndCheckMinimumResults(getLargeQueryText(), getLargeQuerySize(), 75);
     }
 
     @Test

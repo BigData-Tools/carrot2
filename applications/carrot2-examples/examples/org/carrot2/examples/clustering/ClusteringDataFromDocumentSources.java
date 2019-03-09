@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -27,8 +27,8 @@ import org.carrot2.core.ProcessingResult;
 import org.carrot2.core.attribute.CommonAttributesDescriptor;
 import org.carrot2.examples.ConsoleFormatter;
 import org.carrot2.source.etools.EToolsDocumentSource;
-import org.carrot2.source.microsoft.Bing3WebDocumentSource;
-import org.carrot2.source.microsoft.Bing3WebDocumentSourceDescriptor;
+import org.carrot2.source.microsoft.v7.Bing7DocumentSource;
+import org.carrot2.source.microsoft.v7.Bing7DocumentSourceDescriptor;
 
 /**
  * This example shows how to cluster {@link Document}s retrieved from
@@ -66,7 +66,7 @@ public class ClusteringDataFromDocumentSources
         {
             /// [[[start:clustering-data-from-document-sources-simple]]]
             /* A controller to manage the processing pipeline. */
-            final Controller controller = ControllerFactory.createSimple();
+            final Controller controller = ControllerFactory.createPooling();
 
             /* Perform processing */
             final ProcessingResult result = controller.process("data mining", 100,
@@ -87,21 +87,21 @@ public class ClusteringDataFromDocumentSources
          * default one. You can pass the API key along with the query and the requested
          * number of results in an attribute map. Carrot2 manual lists all supported attributes
          * along with their keys, types and allowed values. The code shown below, fetches and clusters
-         * 50 results from {@link org.carrot2.source.microsoft.Bing3WebDocumentSource}. 
+         * 50 results from {@link org.carrot2.source.microsoft.v7.Bing7DocumentSource}. 
          * 
          * [[[end:clustering-data-from-document-sources-advanced-intro]]]
          */
         {
             /// [[[start:clustering-data-from-document-sources-advanced]]]
             /* A controller to manage the processing pipeline. */
-            final Controller controller = ControllerFactory.createSimple();
+            final Controller controller = ControllerFactory.createPooling();
     
             /* Prepare attributes */
             final Map<String, Object> attributes = new HashMap<String, Object>();
             
             /* Put your own API key here! */
-            Bing3WebDocumentSourceDescriptor.attributeBuilder(attributes)
-                .appid(BingKeyAccess.getKey());
+            Bing7DocumentSourceDescriptor.attributeBuilder(attributes)
+                .apiKey(BingKeyAccess.getKey());
 
             /* Query an the required number of results */
             attributes.put(CommonAttributesDescriptor.Keys.QUERY, "clustering");
@@ -109,7 +109,7 @@ public class ClusteringDataFromDocumentSources
     
             /* Perform processing */
             final ProcessingResult result = controller.process(attributes, 
-                Bing3WebDocumentSource.class, STCClusteringAlgorithm.class);
+                Bing7DocumentSource.class, STCClusteringAlgorithm.class);
 
             /* Documents fetched from the document source, clusters created by Carrot2. */
             final List<Document> documents = result.getDocuments();

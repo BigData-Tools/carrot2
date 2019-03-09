@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -13,15 +13,11 @@
 package org.carrot2.clustering.kmeans;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 
-import org.apache.commons.lang.ObjectUtils;
-import org.apache.mahout.math.function.Functions;
-import org.apache.mahout.math.matrix.DoubleMatrix1D;
-import org.apache.mahout.math.matrix.DoubleMatrix2D;
-import org.apache.mahout.math.matrix.impl.DenseDoubleMatrix1D;
-import org.apache.mahout.math.matrix.impl.DenseDoubleMatrix2D;
 import org.carrot2.core.Cluster;
 import org.carrot2.core.Document;
 import org.carrot2.core.IClusteringAlgorithm;
@@ -36,7 +32,6 @@ import org.carrot2.core.attribute.Processing;
 import org.carrot2.text.analysis.ITokenizer;
 import org.carrot2.text.clustering.IMonolingualClusteringAlgorithm;
 import org.carrot2.text.clustering.MultilingualClustering;
-import org.carrot2.text.clustering.MultilingualClustering.LanguageAggregationStrategy;
 import org.carrot2.text.preprocessing.LabelFormatter;
 import org.carrot2.text.preprocessing.PreprocessingContext;
 import org.carrot2.text.preprocessing.pipeline.BasicPreprocessingPipeline;
@@ -59,14 +54,19 @@ import org.carrot2.util.attribute.constraint.ImplementingClasses;
 import org.carrot2.util.attribute.constraint.IntRange;
 
 import com.carrotsearch.hppc.IntArrayList;
+import com.carrotsearch.hppc.IntIntHashMap;
 import com.carrotsearch.hppc.IntIntMap;
-import com.carrotsearch.hppc.IntIntOpenHashMap;
 import com.carrotsearch.hppc.cursors.IntCursor;
 import com.carrotsearch.hppc.cursors.IntIntCursor;
 import com.carrotsearch.hppc.sorting.IndirectComparator;
 import com.carrotsearch.hppc.sorting.IndirectSort;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Ordering;
+
+import org.carrot2.mahout.math.function.Functions;
+import org.carrot2.mahout.math.matrix.DoubleMatrix1D;
+import org.carrot2.mahout.math.matrix.DoubleMatrix2D;
+import org.carrot2.mahout.math.matrix.impl.DenseDoubleMatrix1D;
+import org.carrot2.mahout.math.matrix.impl.DenseDoubleMatrix2D;
+import org.carrot2.shaded.guava.common.collect.Lists;
 
 /**
  * A very simple implementation of bisecting k-means clustering. Unlike other algorithms
@@ -74,7 +74,6 @@ import com.google.common.collect.Ordering;
  * cluster). On the other hand, the clusters are labeled only with individual words that
  * may not always fully correspond to all documents in the cluster.
  */
-@SuppressWarnings("deprecation")
 @Bindable(prefix = "BisectingKMeansClusteringAlgorithm", inherit = CommonAttributes.class)
 public class BisectingKMeansClusteringAlgorithm extends ProcessingComponentBase implements
     IClusteringAlgorithm
@@ -123,7 +122,9 @@ public class BisectingKMeansClusteringAlgorithm extends ProcessingComponentBase 
     /**
      * Use dimensionality reduction. If <code>true</code>, k-means will be applied on the
      * dimensionality-reduced term-document matrix with the number of dimensions being
-     * equal to the number of requested clusters. If <code>false</code>, the k-means will
+     * equal to twice the number of requested clusters. If the number of dimensions is 
+     * lower than the number of input documents, reduction will not be performed.
+     * If <code>false</code>, the k-means will
      * be performed directly on the original term-document matrix.
      */
     @Processing
@@ -190,7 +191,6 @@ public class BisectingKMeansClusteringAlgorithm extends ProcessingComponentBase 
      */
     public final MultilingualClustering multilingualClustering = new MultilingualClustering();
 
-    @SuppressWarnings("unchecked")
     @Override
     public void process() throws ProcessingException
     {
@@ -212,13 +212,6 @@ public class BisectingKMeansClusteringAlgorithm extends ProcessingComponentBase 
                 }
             });
         documents = originalDocuments;
-
-        if (multilingualClustering.languageAggregationStrategy == LanguageAggregationStrategy.FLATTEN_ALL)
-        {
-            Collections.sort(clusters, Ordering.compound(Lists.newArrayList(
-                Cluster.OTHER_TOPICS_AT_THE_END,
-                Cluster.BY_REVERSED_SIZE_AND_LABEL_COMPARATOR)));
-        }
     }
 
     /**
@@ -259,16 +252,16 @@ public class BisectingKMeansClusteringAlgorithm extends ProcessingComponentBase 
             matrixBuilder.buildTermPhraseMatrix(vsmContext);
 
             // Prepare rowIndex -> stemIndex mapping for labeling
-            final IntIntOpenHashMap rowToStemIndex = new IntIntOpenHashMap();
+            final IntIntHashMap rowToStemIndex = new IntIntHashMap();
             for (IntIntCursor c : vsmContext.stemToRowIndex)
             {
                 rowToStemIndex.put(c.value, c.key);
             }
 
             final DoubleMatrix2D tdMatrix;
-            if (useDimensionalityReduction)
+            if (useDimensionalityReduction && clusterCount * 2 < preprocessingContext.documents.size())
             {
-                matrixReducer.reduce(reducedVsmContext, clusterCount);
+                matrixReducer.reduce(reducedVsmContext, clusterCount * 2);
                 tdMatrix = reducedVsmContext.coefficientMatrix.viewDice();
             }
             else
@@ -284,29 +277,18 @@ public class BisectingKMeansClusteringAlgorithm extends ProcessingComponentBase 
             }
             final List<IntArrayList> rawClusters = Lists.newArrayList();
             rawClusters.addAll(split(partitionCount, tdMatrix, columns, maxIterations));
-
-            boolean finished = false;
-            int emptySplits = 0;
-            while (rawClusters.size() < clusterCount && !finished)
+            Collections.sort(rawClusters, BY_SIZE_DESCENDING);
+            
+            int largestIndex = 0;
+            while (rawClusters.size() < clusterCount && largestIndex < rawClusters.size())
             {
                 // Find largest cluster to split
-                int largestIndex = 0;
-                IntArrayList largest = rawClusters.get(0);
-                finished = largest.size() <= partitionCount * 2;
-                for (int i = 1; i < rawClusters.size(); i++)
+                IntArrayList largest = rawClusters.get(largestIndex);
+                if (largest.size() <= partitionCount * 2) 
                 {
-                    final int size = rawClusters.get(i).size();
-                    if (size > largest.size() && size > partitionCount * 2)
-                    {
-                        largest = rawClusters.get(i);
-                        largestIndex = i;
-                        finished = false;
-                    }
-                }
-
-                if (finished)
-                {
-                    // No more splittable clusters
+                    // No cluster is large enough to produce a meaningful
+                    // split (i.e. a split into subclusters with more than
+                    // 1 member).
                     break;
                 }
 
@@ -316,16 +298,12 @@ public class BisectingKMeansClusteringAlgorithm extends ProcessingComponentBase 
                 {
                     rawClusters.remove(largestIndex);
                     rawClusters.addAll(split);
-                    emptySplits = 0;
+                    Collections.sort(rawClusters, BY_SIZE_DESCENDING);
+                    largestIndex = 0;
                 }
                 else
                 {
-                    if (++emptySplits >= rawClusters.size())
-                    {
-                        // For each cluster we tried to split, we got no subclusters.
-                        // This means there's no more clusters we can create.
-                        break;
-                    }
+                    largestIndex++;
                 }
             }
 
@@ -353,8 +331,18 @@ public class BisectingKMeansClusteringAlgorithm extends ProcessingComponentBase 
         Cluster.appendOtherTopics(documents, clusters);
     }
 
+    private static final Comparator<IntArrayList> BY_SIZE_DESCENDING = new Comparator<IntArrayList>()
+    {
+        @Override
+        public int compare(IntArrayList o1, IntArrayList o2)
+        {
+            // We don't expect very large sizes here.
+            return o2.size() - o1.size();
+        }
+    };
+    
     private List<String> getLabels(IntArrayList documents,
-        DoubleMatrix2D termDocumentMatrix, IntIntOpenHashMap rowToStemIndex,
+        DoubleMatrix2D termDocumentMatrix, IntIntHashMap rowToStemIndex,
         int [] mostFrequentOriginalWordIndex, char [][] wordImage)
     {
         // Prepare a centroid. If dimensionality reduction was used,
@@ -409,7 +397,7 @@ public class BisectingKMeansClusteringAlgorithm extends ProcessingComponentBase 
         // Prepare selected matrix
         final DoubleMatrix2D selected = input.viewSelection(null, columns.toArray())
             .copy();
-        final IntIntMap selectedToInput = new IntIntOpenHashMap(selected.columns());
+        final IntIntMap selectedToInput = new IntIntHashMap(selected.columns());
         for (int i = 0; i < columns.size(); i++)
         {
             selectedToInput.put(i, columns.get(i));
@@ -422,6 +410,10 @@ public class BisectingKMeansClusteringAlgorithm extends ProcessingComponentBase 
         {
             result.add(new IntArrayList(selected.columns()));
         }
+        for (int i = 0; i < selected.columns(); i++) 
+        {
+            result.get(i % partitions).add(i);
+        }
 
         // Matrices for centroids and document-centroid similarities
         final DoubleMatrix2D centroids = new DenseDoubleMatrix2D(selected.rows(),
@@ -432,6 +424,28 @@ public class BisectingKMeansClusteringAlgorithm extends ProcessingComponentBase 
         // Run a fixed number of K-means iterations
         for (int it = 0; it < iterations; it++)
         {
+            // Update centroids
+            for (int i = 0; i < result.size(); i++)
+            {
+                final IntArrayList cluster = result.get(i);
+                for (int k = 0; k < selected.rows(); k++)
+                {
+                    double sum = 0;
+                    for (int j = 0; j < cluster.size(); j++)
+                    {
+                        sum += selected.get(k, cluster.get(j));
+                    }
+                    centroids.setQuick(k, i, sum / cluster.size());
+                }
+            }
+
+            previousResult = result;
+            result = Lists.newArrayList();
+            for (int i = 0; i < partitions; i++)
+            {
+                result.add(new IntArrayList(selected.columns()));
+            }
+
             // Calculate similarity to centroids
             centroids.zMult(selected, similarities, 1, 0, true, false);
 
@@ -452,35 +466,10 @@ public class BisectingKMeansClusteringAlgorithm extends ProcessingComponentBase 
                 result.get(maxRow).add(c);
             }
 
-            if (ObjectUtils.equals(previousResult, result))
+            if (Objects.equals(previousResult, result))
             {
                 // Unchanged result
                 break;
-            }
-
-            // Update centroids
-            for (int i = 0; i < result.size(); i++)
-            {
-                final IntArrayList cluster = result.get(i);
-                for (int k = 0; k < selected.rows(); k++)
-                {
-                    double sum = 0;
-                    for (int j = 0; j < cluster.size(); j++)
-                    {
-                        sum += selected.get(k, cluster.get(j));
-                    }
-                    centroids.setQuick(k, i, sum / cluster.size());
-                }
-            }
-
-            if (it < iterations - 1)
-            {
-                previousResult = result;
-                result = Lists.newArrayList();
-                for (int i = 0; i < partitions; i++)
-                {
-                    result.add(new IntArrayList(selected.columns()));
-                }
             }
         }
 

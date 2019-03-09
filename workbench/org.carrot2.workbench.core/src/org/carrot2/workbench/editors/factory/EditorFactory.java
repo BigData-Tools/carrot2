@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -12,7 +12,7 @@
 
 package org.carrot2.workbench.editors.factory;
 
-import static org.apache.commons.lang.ClassUtils.*;
+import static org.apache.commons.lang3.ClassUtils.*;
 
 import java.lang.annotation.Annotation;
 import java.util.*;
@@ -21,8 +21,8 @@ import org.carrot2.core.IProcessingComponent;
 import org.carrot2.util.attribute.AttributeDescriptor;
 import org.carrot2.workbench.editors.IAttributeEditor;
 
-import com.google.common.base.Predicate;
-import com.google.common.collect.*;
+import org.carrot2.shaded.guava.common.base.Predicate;
+import org.carrot2.shaded.guava.common.collect.*;
 
 /**
  * See {@link #getEditorFor(Class, AttributeDescriptor)}.
@@ -212,7 +212,6 @@ public final class EditorFactory
      * Return <code>true</code> if a given <code>className<code> is assignable
      * to <code>clazz</code>.
      */
-    @SuppressWarnings("unchecked")
     private static boolean isCompatible(Class<?> clazz, String className)
     {
         /*
@@ -249,7 +248,6 @@ public final class EditorFactory
      * <code>clazz</code>. The distance is calculated based on the difference in the
      * number of classes in the hierarchy of inheritance.  
      */
-    @SuppressWarnings("unchecked")
     public static int distance(Class<?> clazz, String className)
     {
         if (clazz.getName().equals(className))

@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -16,37 +16,64 @@ import java.awt.Dimension;
 import java.awt.Frame;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
-import java.io.*;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Map;
 
-import javax.swing.*;
+import javax.swing.BorderFactory;
+import javax.swing.JApplet;
+import javax.swing.JScrollPane;
+import javax.swing.SwingUtilities;
 
-import org.apache.commons.lang.StringUtils;
-import org.carrot2.core.*;
+import org.apache.commons.lang3.StringUtils;
 import org.carrot2.core.Cluster;
+import org.carrot2.core.Document;
+import org.carrot2.core.ProcessingResult;
+import org.carrot2.shaded.guava.common.collect.Lists;
+import org.carrot2.shaded.guava.common.collect.Maps;
 import org.carrot2.workbench.core.helpers.DisposeBin;
 import org.carrot2.workbench.core.helpers.PostponableJob;
-import org.carrot2.workbench.core.ui.*;
-import org.carrot2.workbench.core.ui.actions.*;
-import org.eclipse.core.runtime.*;
+import org.carrot2.workbench.core.ui.PropertyChangeListenerAdapter;
+import org.carrot2.workbench.core.ui.SearchEditor;
+import org.carrot2.workbench.core.ui.SearchResultListenerAdapter;
+import org.carrot2.workbench.core.ui.actions.ExportImageAction;
+import org.carrot2.workbench.core.ui.actions.IImageStreamProvider;
+import org.eclipse.core.runtime.IAdapterManager;
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Platform;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.jface.util.IPropertyChangeListener;
 import org.eclipse.jface.util.PropertyChangeEvent;
-import org.eclipse.jface.viewers.*;
+import org.eclipse.jface.viewers.ISelection;
+import org.eclipse.jface.viewers.ISelectionChangedListener;
+import org.eclipse.jface.viewers.ISelectionProvider;
+import org.eclipse.jface.viewers.IStructuredSelection;
+import org.eclipse.jface.viewers.SelectionChangedEvent;
+import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.awt.SWT_AWT;
-import org.eclipse.swt.events.*;
+import org.eclipse.swt.events.ControlAdapter;
+import org.eclipse.swt.events.ControlEvent;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
-import org.eclipse.swt.widgets.*;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.ScrollBar;
 import org.eclipse.ui.part.IPageSite;
 import org.eclipse.ui.part.Page;
 import org.eclipse.ui.progress.UIJob;
 
-import biz.aduna.map.cluster.*;
-
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import biz.aduna.map.cluster.Classification;
+import biz.aduna.map.cluster.ClusterGraphPanel;
+import biz.aduna.map.cluster.ClusterMap;
+import biz.aduna.map.cluster.ClusterMapFactory;
+import biz.aduna.map.cluster.ClusterMapMediator;
+import biz.aduna.map.cluster.DefaultClassification;
+import biz.aduna.map.cluster.DefaultObject;
 
 /**
  * A single {@link AdunaClusterMapViewPage} page embeds Aduna's Swing component with
@@ -413,13 +440,18 @@ final class AdunaClusterMapViewPage extends Page
 
         final Frame frame = SWT_AWT.new_Frame(embedded);
         frame.setLayout(new java.awt.BorderLayout());
+        
+        // LINGO-446: flicker fix; see "Creating a Root Pane Container" in http://www.eclipse.org/articles/article.php?file=Article-Swing-SWT-Integration/index.html
+        final JApplet applet = new JApplet();
+        frame.add(applet);
+        applet.setLayout(new java.awt.BorderLayout());
 
         final JScrollPane scrollPanel = new JScrollPane(
             JScrollPane.VERTICAL_SCROLLBAR_NEVER, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPanel.setDoubleBuffered(true);
 
         scrollPanel.setBorder(BorderFactory.createEmptyBorder());
-        frame.add(scrollPanel, java.awt.BorderLayout.CENTER);
+        applet.getContentPane().add(scrollPanel, java.awt.BorderLayout.CENTER);
 
         final ClusterMapFactory factory = ClusterMapFactory.createFactory();
         final ClusterMap clusterMap = factory.createClusterMap();
@@ -427,6 +459,7 @@ final class AdunaClusterMapViewPage extends Page
         this.mapMediator = mapMediator;
 
         final ClusterGraphPanel graphPanel = mapMediator.getGraphPanel();
+        graphPanel.setDoubleBuffered(true);
         scrollPanel.setViewportView(graphPanel);
 
         scrollable.addControlListener(new ControlAdapter()

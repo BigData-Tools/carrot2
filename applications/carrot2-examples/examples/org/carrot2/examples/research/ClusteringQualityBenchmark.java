@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -28,8 +28,8 @@ import org.carrot2.source.ambient.AmbientDocumentSource.AmbientTopic;
 import org.carrot2.source.ambient.AmbientDocumentSourceDescriptor;
 import org.carrot2.text.util.TabularOutput;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import org.carrot2.shaded.guava.common.collect.Lists;
+import org.carrot2.shaded.guava.common.collect.Maps;
 
 /**
  * Runs a clustering quality benchmark based on the data set embedded in
@@ -41,7 +41,7 @@ public class ClusteringQualityBenchmark
     {
         // Disable excessive logging
         final AmbientTopic [] topics = AmbientDocumentSource.AmbientTopic.values();
-        final Controller controller = ControllerFactory.createSimple();
+        final Controller controller = ControllerFactory.createPooling();
 
         // List of algorithms to test
         final ArrayList<Class<? extends IProcessingComponent>> algorithms = Lists

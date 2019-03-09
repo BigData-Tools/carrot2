@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -107,7 +107,7 @@ public class ClusteringDocumentList
             }
 
             /* A controller to manage the processing pipeline. */
-            final Controller controller = ControllerFactory.createSimple();
+            final Controller controller = ControllerFactory.createPooling();
 
             /*
              * Perform clustering by topic using the Lingo algorithm. Lingo can 

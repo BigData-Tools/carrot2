@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -16,10 +16,9 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.Objects;
 
-import org.apache.commons.lang.ObjectUtils;
-
-import com.google.common.collect.Lists;
+import org.carrot2.shaded.guava.common.collect.Lists;
 
 /**
  * Scan for resources relative to a given class loader (possibly in all of this
@@ -59,7 +58,9 @@ public final class ClassLoaderLocator implements IResourceLocator
              * on disk (Windows at least). Make them relative.
              */
             while (resource.startsWith("/"))
+            {
                 resource = resource.substring(1);
+            }
 
             final Enumeration<URL> e = loader.getResources(resource);
             while (e.hasMoreElements())
@@ -89,7 +90,7 @@ public final class ClassLoaderLocator implements IResourceLocator
 
         if (target != null && target instanceof ClassLoaderLocator)
         {
-            return ObjectUtils.equals(this.loader, ((ClassLoaderLocator) target).loader);
+            return Objects.equals(this.loader, ((ClassLoaderLocator) target).loader);
         }
 
         return false;

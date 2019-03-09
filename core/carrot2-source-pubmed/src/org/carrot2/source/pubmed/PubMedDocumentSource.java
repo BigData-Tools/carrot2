@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -15,11 +15,13 @@ package org.carrot2.source.pubmed;
 import java.io.IOException;
 import java.util.List;
 
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParserFactory;
 
 import org.apache.http.HttpStatus;
 import org.carrot2.core.Document;
 import org.carrot2.core.LanguageCode;
+import org.carrot2.core.attribute.Init;
 import org.carrot2.core.attribute.Internal;
 import org.carrot2.core.attribute.Processing;
 import org.carrot2.source.SearchEngineResponse;
@@ -38,6 +40,7 @@ import org.carrot2.util.httpclient.HttpClientFactory;
 import org.carrot2.util.httpclient.HttpRedirectStrategy;
 import org.carrot2.util.httpclient.HttpUtils;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
 
 /**
@@ -48,13 +51,25 @@ import org.xml.sax.XMLReader;
 public class PubMedDocumentSource extends SimpleSearchEngine
 {
     /** PubMed search service URL */
-    public static final String E_SEARCH_URL = "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi";
+    public static final String E_SEARCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi";
 
     /** PubMed fetch service URL */
-    public static final String E_FETCH_URL = "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi";
+    public static final String E_FETCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi";
 
     /** HTTP timeout for pubmed services.*/
     public static final int PUBMED_TIMEOUT = HttpClientFactory.DEFAULT_TIMEOUT * 3;
+
+    /**
+     * Tool name, if registered.
+     * @see "http://www.ncbi.nlm.nih.gov"
+     */
+    @Init
+    @Input
+    @Attribute
+    @Label("EUtils Registered Tool Name")
+    @Level(AttributeLevel.ADVANCED)
+    @Group(DefaultGroups.QUERY)
+    public String toolName = "Carrot Search";
 
     /**
      * Maximum results to fetch. No more than the specified number of results
@@ -85,7 +100,10 @@ public class PubMedDocumentSource extends SimpleSearchEngine
     @Override
     protected SearchEngineResponse fetchSearchResponse() throws Exception
     {
-        return getPubMedAbstracts(getPubMedIds(query, results));
+        PubMedIdSearchHandler idResponse = getPubMedIds(query, results);
+        SearchEngineResponse response = getPubMedAbstracts(idResponse.getPubMedPrimaryIds());
+        response.metadata.put(SearchEngineResponse.RESULTS_TOTAL_KEY, idResponse.getMatchCount());
+        return response;
     }
 
     @Override
@@ -100,20 +118,19 @@ public class PubMedDocumentSource extends SimpleSearchEngine
     /**
      * Gets PubMed entry ids matching the query.
      */
-    private List<String> getPubMedIds(final String query, final int requestedResults)
+    private PubMedIdSearchHandler getPubMedIds(final String query, final int requestedResults)
         throws Exception
     {
-        final XMLReader reader = SAXParserFactory.newInstance().newSAXParser()
-            .getXMLReader();
-        reader.setFeature("http://xml.org/sax/features/validation", false);
-        reader.setFeature("http://xml.org/sax/features/namespaces", true);
-
-        PubMedSearchHandler searchHandler = new PubMedSearchHandler();
+        final XMLReader reader = newXmlReader();
+        PubMedIdSearchHandler searchHandler = new PubMedIdSearchHandler();
         reader.setContentHandler(searchHandler);
 
-        final String url = E_SEARCH_URL + "?db=pubmed&usehistory=n&term="
-            + StringUtils.urlEncodeWrapException(query, "UTF-8") + "&retmax="
-            + Integer.toString(Math.min(requestedResults, maxResults));
+        final String url = E_SEARCH_URL
+            + "?db=pubmed"
+            + "&usehistory=n&" 
+            + "&term=" + StringUtils.urlEncodeWrapException(query, "UTF-8") 
+            + "&retmax=" + Integer.toString(Math.min(requestedResults, maxResults))
+            + "&tool=" + StringUtils.urlEncodeWrapException(toolName, "UTF-8");
 
         final HttpUtils.Response response = HttpUtils.doGET(
             url, 
@@ -134,7 +151,7 @@ public class PubMedDocumentSource extends SimpleSearchEngine
                 + ", HTTP payload: " + new String(response.payload, "iso8859-1"));
         }
 
-        return searchHandler.getPubMedPrimaryIds();
+        return searchHandler;
     }
 
     /**
@@ -147,16 +164,16 @@ public class PubMedDocumentSource extends SimpleSearchEngine
             return new SearchEngineResponse();
         }
         
-        final XMLReader reader = SAXParserFactory.newInstance().newSAXParser()
-            .getXMLReader();
-        reader.setFeature("http://xml.org/sax/features/validation", false);
-        reader.setFeature("http://xml.org/sax/features/namespaces", true);
-
-        final PubMedFetchHandler fetchHandler = new PubMedFetchHandler();
+        final XMLReader reader = newXmlReader();
+        final PubMedContentHandler fetchHandler = new PubMedContentHandler();
         reader.setContentHandler(fetchHandler);
 
-        final String url = E_FETCH_URL + "?db=pubmed&retmode=xml&rettype=abstract&id="
-            + getIdsString(ids);
+        final String url = E_FETCH_URL 
+            + "?db=pubmed"
+            + "&retmode=xml" 
+            + "&rettype=abstract" 
+            + "&id=" + getIdsString(ids)
+            + "&tool=" + StringUtils.urlEncodeWrapException(toolName, "UTF-8");
 
         final HttpUtils.Response response = HttpUtils.doGET(
             url, 
@@ -178,6 +195,18 @@ public class PubMedDocumentSource extends SimpleSearchEngine
         }
 
         return fetchHandler.getResponse();
+    }
+
+    static XMLReader newXmlReader()
+        throws SAXException, ParserConfigurationException
+    {
+        XMLReader reader = SAXParserFactory.newInstance()
+            .newSAXParser()
+            .getXMLReader();
+        reader.setFeature("http://xml.org/sax/features/validation", false);
+        reader.setFeature("http://xml.org/sax/features/namespaces", true);
+        reader.setEntityResolver(new EmptyEntityResolver());
+        return reader;
     }
 
     private String getIdsString(List<String> ids)

@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -12,13 +12,13 @@
 
 package org.carrot2.examples.clustering;
 
-import org.carrot2.source.microsoft.Bing3DocumentSource;
+import org.carrot2.source.microsoft.v7.Bing7DocumentSource;
 
 /**
- * All examples that use Bing will acquire their key from this class.
+ * All examples that use Bing API will acquire their key from this class.
  * <p>
  * You need your own API key to use Microsoft Bing (there is a free pool of request for
- * developers). Search for "bing api" on Microsoft Marketplace or look at: <a
+ * developers). Search for "Bing api" on Microsoft Marketplace or look at: <a
  * href="http://www.bing.com/toolbox/bingdeveloper/">
  * http://www.bing.com/toolbox/bingdeveloper/</a>.
  */
@@ -29,12 +29,12 @@ public class BingKeyAccess
     public static String getKey()
     {
         // Try to acquire the key from system properties.
-        final String key = System.getProperty(Bing3DocumentSource.SYSPROP_BING3_API);
+        final String key = System.getProperty(Bing7DocumentSource.SYSPROP_BING7_API);
 
         if (key == null)
         {
-            System.out.println("WARNING! Empty Bing API key,  pass it via -D"
-                + Bing3DocumentSource.SYSPROP_BING3_API + "=...");
+            System.out.println("WARNING! Empty Bing API V7 key,  pass it via -D"
+                + Bing7DocumentSource.SYSPROP_BING7_API + "=...");
 
             // Return immediately as if nothing happened.
             System.exit(0);

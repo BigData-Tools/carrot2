@@ -2,7 +2,7 @@
 /*
  * Carrot2 project.
  *
- * Copyright (C) 2002-2013, Dawid Weiss, Stanisław Osiński.
+ * Copyright (C) 2002-2019, Dawid Weiss, Stanisław Osiński.
  * All rights reserved.
  *
  * Refer to the full license file "carrot2.LICENSE"
@@ -14,10 +14,20 @@ package org.carrot2.dcs;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -31,7 +41,7 @@ import javax.xml.transform.stream.StreamSource;
 import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.fileupload.FileUploadException;
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.FileAppender;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
@@ -41,16 +51,21 @@ import org.carrot2.core.Document;
 import org.carrot2.core.IClusteringAlgorithm;
 import org.carrot2.core.IDocumentSource;
 import org.carrot2.core.IProcessingComponent;
+import org.carrot2.core.ProcessingComponentConfiguration;
 import org.carrot2.core.ProcessingComponentSuite;
 import org.carrot2.core.ProcessingException;
 import org.carrot2.core.ProcessingResult;
 import org.carrot2.dcs.DcsRequestModel.OutputFormat;
+import org.carrot2.shaded.guava.common.collect.ImmutableMap;
+import org.carrot2.shaded.guava.common.collect.Lists;
+import org.carrot2.shaded.guava.common.collect.Maps;
 import org.carrot2.text.linguistic.DefaultLexicalDataFactory;
 import org.carrot2.util.CloseableUtils;
 import org.carrot2.util.attribute.AttributeBinder;
 import org.carrot2.util.attribute.AttributeUtils;
 import org.carrot2.util.attribute.Input;
 import org.carrot2.util.resource.ClassResource;
+import org.carrot2.util.resource.DirLocator;
 import org.carrot2.util.resource.IResource;
 import org.carrot2.util.resource.IResourceLocator;
 import org.carrot2.util.resource.PrefixDecoratorLocator;
@@ -58,8 +73,6 @@ import org.carrot2.util.resource.ResourceLookup;
 import org.carrot2.util.resource.ResourceLookup.Location;
 import org.carrot2.util.resource.ServletContextLocator;
 import org.carrot2.util.xslt.NopURIResolver;
-
-import com.google.common.collect.*;
 
 /**
  * A servlet that parses HTTP POST input in Carrot<sup>2</sup> XML format, clusters it and
@@ -118,8 +131,6 @@ public final class RestProcessorServlet extends HttpServlet
 
     private transient Controller controller;
 
-    private transient boolean loggerInitialized;
-
     private String defaultAlgorithmId;
 
     private transient Templates xsltTemplates;
@@ -176,24 +187,30 @@ public final class RestProcessorServlet extends HttpServlet
         });
 
         // Aliases for clustering commands.
-        put("rest", new CommandAction() {
+        CommandAction clusteringAction = new CommandAction() {
             public void handle(HttpServletRequest request, HttpServletResponse response) throws Exception
             {
                 handleWwwUrlEncoded(request, response);
             }
-        });
-        put("cluster", new CommandAction() {
-            public void handle(HttpServletRequest request, HttpServletResponse response) throws Exception
-            {
-                handleWwwUrlEncoded(request, response);
-            }
-        });
+        };
+        put("rest", clusteringAction);
+        put("cluster", clusteringAction);
     }};
 
-    @Override
     @SuppressWarnings("unchecked")
-    public void init() throws ServletException
-    {
+    @Override
+    public void init(ServletConfig servletConfig) throws ServletException {
+        super.init(servletConfig);
+
+        if (!disableLogFileAppender)
+        {
+            try {
+              Logger.getRootLogger().addAppender(getLogAppender(servletConfig.getServletContext()));
+            } catch (IOException e) {
+              throw new ServletException(e);
+            }
+        }
+
         // Run in servlet container, load config from config.xml.
         ResourceLookup webInfLookup = new ResourceLookup(new PrefixDecoratorLocator(
             new ServletContextLocator(getServletContext()), "/WEB-INF/"));
@@ -206,6 +223,8 @@ public final class RestProcessorServlet extends HttpServlet
         {
             throw new ServletException("Could not read 'config.xml' resource.", e);
         }
+
+        config.logger.debug("DCS request processor starting.");        
 
         // Initialize XSLT
         initXslt(config, webInfLookup);
@@ -257,8 +276,8 @@ public final class RestProcessorServlet extends HttpServlet
             cachedComponentClasses.add(IClusteringAlgorithm.class);
         }
 
-        controller = ControllerFactory.createCachingPooling(cachedComponentClasses
-            .toArray(new Class [cachedComponentClasses.size()]));
+        controller = ControllerFactory.createCachingPooling(
+            cachedComponentClasses.toArray(new Class [cachedComponentClasses.size()]));
 
         List<IResourceLocator> locators = Lists.newArrayList();
         locators.add(new PrefixDecoratorLocator(new ServletContextLocator(
@@ -267,27 +286,40 @@ public final class RestProcessorServlet extends HttpServlet
         if (Boolean.getBoolean(ENABLE_CLASSPATH_LOCATOR)) locators
             .add(Location.CONTEXT_CLASS_LOADER.locator);
 
-        controller.init(ImmutableMap.<String, Object> of(
-            AttributeUtils.getKey(DefaultLexicalDataFactory.class, "resourceLookup"),
-            new ResourceLookup(locators)), componentSuite.getComponentConfigurations());
+        // Allow multiple resource lookup paths for different component configurations.
+        String resourceLookupAttrKey = AttributeUtils.getKey(DefaultLexicalDataFactory.class, "resourceLookup");
+        String altResourceLookupAttrKey = "dcs.resource-lookup";
+        ProcessingComponentConfiguration [] configurations = componentSuite.getComponentConfigurations();
+        for (int i = 0; i < configurations.length; i++) {
+            ProcessingComponentConfiguration config = configurations[i];
+            Object location = config.attributes.get(altResourceLookupAttrKey);
+            if (location != null && location instanceof String) {
+                Path resourceDir = Paths.get((String) location);
+                if (!Files.isDirectory(resourceDir)) {
+                    Logger.getRootLogger().warn("Not a resource folder, ignored: " + resourceDir);
+                } else {
+                    HashMap<String,Object> mutableMap = new HashMap<String,Object>(config.attributes);
+                    mutableMap.put(resourceLookupAttrKey,
+                        new ResourceLookup(new DirLocator(resourceDir)));
+                    config = configurations[i] = new ProcessingComponentConfiguration(
+                        config.componentClass,
+                        config.componentId,
+                        mutableMap);
+                }
+            }
+        }
+
+        controller.init(
+            ImmutableMap.<String, Object> of(resourceLookupAttrKey, new ResourceLookup(locators)), 
+            configurations);
+
+        config.logger.info("DCS request processor started.");
     }
 
     @Override
     protected void service(HttpServletRequest request, HttpServletResponse response)
         throws ServletException, IOException
     {
-        synchronized (this)
-        {
-            if (!loggerInitialized)
-            {
-                if (!disableLogFileAppender)
-                {
-                    Logger.getRootLogger().addAppender(getLogAppender(request));
-                }
-                loggerInitialized = true;
-            }
-        }
-        
         // Allow ajax requests from anywhere. This is respected by browsers only 
         // anyway and somebody installing the DCS should provide other authentication/ filtering
         // means to limit potential spam/ leechers.
@@ -370,6 +402,7 @@ public final class RestProcessorServlet extends HttpServlet
             }
             catch (Exception e)
             {
+                config.logger.error("Trying to parse: " + request.getParameter(DCS_C2STREAM));
                 sendBadRequest("Could not parse Carrot2 XML stream", response, e);
                 return;
             }
@@ -393,7 +426,6 @@ public final class RestProcessorServlet extends HttpServlet
     /**
      * Handle multipart request, possibly including dcs.c2stream. 
      */
-    @SuppressWarnings("unchecked")
     private void handleMultiPart(HttpServletRequest request, HttpServletResponse response)
         throws IOException
     {
@@ -459,7 +491,6 @@ public final class RestProcessorServlet extends HttpServlet
      * @param parameters
      * @throws IOException
      */
-    @SuppressWarnings("unchecked")
     private void processRequest(HttpServletResponse response, 
         ProcessingResult input, final Map<String, Object> parameters) 
         throws IOException
@@ -518,25 +549,23 @@ public final class RestProcessorServlet extends HttpServlet
         try
         {
             long start = System.currentTimeMillis();
-            final String logMsg;
             if (requestModel.source != null)
             {
-                logMsg = "Processed results from " + requestModel.source + " with " + requestModel.algorithm;
-                result = controller.process(processingAttributes, requestModel.source,
-                    requestModel.algorithm);
+                result = controller.process(processingAttributes, requestModel.source, requestModel.algorithm);
             }
             else
             {
-                logMsg = "Processed direct results feed with " + requestModel.algorithm;
                 result = controller.process(processingAttributes, requestModel.algorithm);
             }
 
             if (config.logger.isInfoEnabled()) {
-                config.logger.info(
-                    String.format(Locale.ENGLISH,
-                        "%s [%.2fs.]",
-                        logMsg,
-                        (System.currentTimeMillis() - start) / 1000.0));
+              config.logger.info(String.format(Locale.ROOT,
+                  "Processed %d documents (~%.2f KB) from %s using %s [%.2fs.]",
+                  result.getDocuments().size(),
+                  approximateCharacterCount(result.getDocuments()) / 1024d,
+                  requestModel.source == null ? "[request]" : requestModel.source,
+                  requestModel.algorithm,
+                  (System.currentTimeMillis() - start) / 1000.0));
             }
         }
         catch (ProcessingException e)
@@ -570,6 +599,19 @@ public final class RestProcessorServlet extends HttpServlet
         {
             sendInternalServerError("Could not serialize results", response, e);
         }
+    }
+
+    private long approximateCharacterCount(List<Document> documents) {
+      long size = 0;
+      for (Document doc : documents) {
+        size += sizeOf(doc.getTitle());
+        size += sizeOf(doc.getSummary());
+      }
+      return size;
+    }
+
+    private long sizeOf(String string) {
+      return string == null ? 0 : string.length();
     }
 
     /**
@@ -634,9 +676,9 @@ public final class RestProcessorServlet extends HttpServlet
         response.sendError(HttpServletResponse.SC_BAD_REQUEST, finalMessage);
     }
 
-    private FileAppender getLogAppender(HttpServletRequest request) throws IOException
+    private FileAppender getLogAppender(ServletContext context) throws IOException
     {
-        String contextPath = request.getContextPath();
+        String contextPath = context.getContextPath();
         if (StringUtils.isBlank(contextPath))
         {
             contextPath = "root";
@@ -644,11 +686,14 @@ public final class RestProcessorServlet extends HttpServlet
 
         contextPath = contextPath.replaceAll("[^a-zA-Z0-9\\-]", "");
         final String catalinaHome = System.getProperty("catalina.home");
-        final String logPrefix = (catalinaHome != null ? catalinaHome + "/logs" : "logs");
-
-        final FileAppender appender = new FileAppender(new PatternLayout(
-            "%d{ISO8601} [%-5p] [%c] %m%n"), logPrefix + "/c2-dcs-" + contextPath
-            + "-full.log", true);
+        final File logPrefix = new File(catalinaHome != null ? catalinaHome + "/logs" : "logs");
+        if (!logPrefix.isDirectory()) {
+            logPrefix.mkdirs();
+        }
+        
+        String logDestination = new File(logPrefix, "/c2-dcs-" + contextPath + "-full.log").getAbsolutePath();
+        final FileAppender appender = 
+            new FileAppender(new PatternLayout("%d{ISO8601} [%-5p] [%c] %m%n"), logDestination, true);
 
         appender.setEncoding(UTF8);
         appender.setImmediateFlush(true);
